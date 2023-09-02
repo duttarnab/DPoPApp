@@ -13,8 +13,18 @@ public class OIDCClient {
     private String clientSecret;
     @SerializedName("RECENT_GENERATED_ID_TOKEN")
     private String recentGeneratedIdToken;
+    @SerializedName("RECENT_GENERATED_ACCESS_TOKEN")
+    private String recentGeneratedAccessToken;
     @SerializedName("scope")
     private String scope;
+
+    public String getRecentGeneratedAccessToken() {
+        return recentGeneratedAccessToken;
+    }
+
+    public void setRecentGeneratedAccessToken(String recentGeneratedAccessToken) {
+        this.recentGeneratedAccessToken = recentGeneratedAccessToken;
+    }
 
     public String getRecentGeneratedIdToken() {
         return recentGeneratedIdToken;

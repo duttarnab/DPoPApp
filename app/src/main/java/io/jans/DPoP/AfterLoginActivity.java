@@ -1,14 +1,20 @@
 package io.jans.DPoP;
 
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
+
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.os.Bundle;
+import android.util.Base64;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
+
 import java.util.UUID;
+
 import io.jans.DPoP.modal.OIDCClient;
 import io.jans.DPoP.modal.OPConfiguration;
 import io.jans.DPoP.retrofit.RetrofitClient;
@@ -20,10 +26,13 @@ import retrofit2.Response;
 public class AfterLoginActivity extends AppCompatActivity {
     TextView message;
     Button logoutButton;
+    AlertDialog.Builder errorDialog;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_after_login);
+        errorDialog = new AlertDialog.Builder(this);
 
         message = findViewById(R.id.userInfo);
         Intent intent = getIntent();
@@ -44,22 +53,42 @@ public class AfterLoginActivity extends AppCompatActivity {
         Toast.makeText(AfterLoginActivity.this, "Processing Logout.", Toast.LENGTH_SHORT).show();
         OPConfiguration opConfiguration = dbH.getOPConfiguration();
         OIDCClient oidcClient = dbH.getOIDCClient(1);
-
-        Call<Void> call = RetrofitClient.getInstance(opConfiguration.getIssuer()).getAPIInterface().logout(opConfiguration.getEndSessionEndpoint()+"?state="+ UUID.randomUUID().toString()+"&id_token_hint="+oidcClient.getRecentGeneratedIdToken());
+        Log.d("Logout access token :: ", oidcClient.getRecentGeneratedAccessToken());
+        Call<Void> call = RetrofitClient.getInstance(opConfiguration.getIssuer()).getAPIInterface().logout(oidcClient.getRecentGeneratedAccessToken(),
+                "access_token",
+                "Basic " + Base64.encodeToString((oidcClient.getClientId() + ":" + oidcClient.getClientSecret()).getBytes(), Base64.NO_WRAP),
+                opConfiguration.getRevocationEndpoint());
         call.enqueue(new Callback<Void>() {
             @Override
             public void onResponse(Call<Void> call, Response<Void> response) {
                 // this method is called when we get response from our api.
-
-                Intent intent = new Intent(AfterLoginActivity.this, LoginActivity.class);
-                startActivity(intent);
+                Log.d("Logout Response code :: ", String.valueOf(response.code()));
+                if (response.code() == 200) {
+                    Intent intent = new Intent(AfterLoginActivity.this, LoginActivity.class);
+                    startActivity(intent);
+                } else {
+                    createErrorDialog("Error in fetching User-Info.\n Error code: " + response.code() + "\n Error message: " + response.message());
+                    errorDialog.show();
+                }
             }
 
             @Override
             public void onFailure(Call<Void> call, Throwable t) {
                 Log.e("Inside getUserInfo :: onFailure :: ", t.getMessage());
-                Toast.makeText(AfterLoginActivity.this, "Error in Logout. : " + t.getMessage(), Toast.LENGTH_SHORT).show();
+                //Toast.makeText(AfterLoginActivity.this, "Error in Logout. : " + t.getMessage(), Toast.LENGTH_SHORT).show();
+                createErrorDialog("Error in fetching User-Info :: " + t.getMessage());
+                errorDialog.show();
             }
         });
+    }
+
+    private void createErrorDialog(String message) {
+        errorDialog.setMessage(message)
+                .setTitle(R.string.error_title)
+                .setPositiveButton("Ok", new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface dialog, int id) {
+                        dialog.cancel();
+                    }
+                });
     }
 }

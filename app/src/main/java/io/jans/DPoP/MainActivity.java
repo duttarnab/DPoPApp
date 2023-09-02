@@ -1,7 +1,9 @@
 package io.jans.DPoP;
 
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
@@ -39,13 +41,14 @@ public class MainActivity extends AppCompatActivity {
     EditText scopes;
     Button registerButton;
     ProgressBar registerProgressBar;
-
+    AlertDialog.Builder errorDialog;
     public static final String APP_LINK = "https://dpop.app";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        errorDialog = new AlertDialog.Builder(this);
 
         registerButton = findViewById(R.id.registerButton);
         registerButton.setOnClickListener(new View.OnClickListener() {
@@ -73,17 +76,23 @@ public class MainActivity extends AppCompatActivity {
         call.enqueue(new Callback<OPConfiguration>() {
             @Override
             public void onResponse(Call<OPConfiguration> call, Response<OPConfiguration> response) {
-                OPConfiguration opConfiguration = response.body();
-                Log.d("Inside fetchOPConfiguration :: opConfiguration ::", opConfiguration.toString());
-                dbH.addOPConfiguration(opConfiguration);
-                doDCR(scopeText, dbH);
-
+                if (response.code() == 200) {
+                    OPConfiguration opConfiguration = response.body();
+                    Log.d("Inside fetchOPConfiguration :: opConfiguration ::", opConfiguration.toString());
+                    dbH.addOPConfiguration(opConfiguration);
+                    doDCR(scopeText, dbH);
+                } else {
+                    createErrorDialog("Error in  fetching OP Configuration.\n Error code: " + response.code() + "\n Error message: " + response.message());
+                    errorDialog.show();
+                }
             }
 
             @Override
             public void onFailure(Call<OPConfiguration> call, Throwable t) {
                 Log.e("Inside fetchOPConfiguration :: onFailure :: ", t.getMessage());
-                Toast.makeText(MainActivity.this, "Error in fetching configuration : " + t.getMessage(), Toast.LENGTH_SHORT).show();
+                //Toast.makeText(MainActivity.this, "Error in fetching configuration : " + t.getMessage(), Toast.LENGTH_SHORT).show();
+                createErrorDialog("Error in  fetching OP Configuration.\n" + t.getMessage());
+                errorDialog.show();
             }
         });
     }
@@ -93,7 +102,6 @@ public class MainActivity extends AppCompatActivity {
         OPConfiguration opConfiguration = dbH.getOPConfiguration();
         String issuer = opConfiguration.getIssuer();
         String registrationUrl = opConfiguration.getRegistrationEndpoint();
-        //Log.d("dpop token", DPoPProofFactory.issueJWTToken("POST", issuer));
 
         DCRequest dcrRequest = new DCRequest();
         dcrRequest.setIssuer(issuer);
@@ -106,10 +114,6 @@ public class MainActivity extends AppCompatActivity {
         dcrRequest.setTokenEndpointAuthMethod("client_secret_basic");
         dcrRequest.setPostLogoutRedirectUris(Lists.newArrayList(issuer));
 
-        //DPoPProofFactory.issueJWTToken("POST", issuer);
-        //KeyManager keyManager = KeyManager.getInstance();
-        //String signedData = keyManager.signData(dcrRequest.toString().getBytes(StandardCharsets.UTF_8));
-        //String signedData = keyManager.signData(dcrRequest.toString().getBytes(StandardCharsets.UTF_8));
         Map<String, Object> claims = new HashMap<>();
         claims.put("aapName", "DPoPApp");
         claims.put("seq", UUID.randomUUID());
@@ -134,28 +138,41 @@ public class MainActivity extends AppCompatActivity {
             public void onResponse(Call<DCResponse> call, Response<DCResponse> response) {
 
                 DCResponse responseFromAPI = response.body();
-                //Log.d("doDCR Response :: getClientId ::", responseFromAPI.getClientId());
-                //Log.d("doDCR Response :: getClientSecret ::", responseFromAPI.getClientSecret());
+                if (response.code() == 200 || response.code() == 201) {
+                    if (responseFromAPI.getClientId() != null && !responseFromAPI.getClientId().isEmpty()) {
+                        OIDCClient client = new OIDCClient();
+                        client.setClientName(responseFromAPI.getClientName());
+                        client.setClientId(responseFromAPI.getClientId());
+                        client.setClientSecret(responseFromAPI.getClientSecret());
+                        client.setScope(scopeText);
+                        dbH.addOIDCClient(client);
 
-                if (responseFromAPI.getClientId() != null && !responseFromAPI.getClientId().isEmpty()) {
-                    OIDCClient client = new OIDCClient();
-                    client.setClientName(responseFromAPI.getClientName());
-                    client.setClientId(responseFromAPI.getClientId());
-                    client.setClientSecret(responseFromAPI.getClientSecret());
-                    client.setScope(scopeText);
-                    dbH.addOIDCClient(client);
-
-                    Intent intent = new Intent(MainActivity.this, LoginActivity.class);
-                    startActivity(intent);
+                        Intent intent = new Intent(MainActivity.this, LoginActivity.class);
+                        startActivity(intent);
+                    }
+                } else {
+                    createErrorDialog("Error in  DCR.\n Error code: " + response.code() + "\n Error message: " + response.message());
+                    errorDialog.show();
                 }
             }
 
             @Override
             public void onFailure(Call<DCResponse> call, Throwable t) {
                 Log.e("Inside doDCR :: onFailure :: ", t.getMessage());
-                Toast.makeText(MainActivity.this, "Error in DCR : " + t.getMessage(), Toast.LENGTH_SHORT).show();
+                //Toast.makeText(MainActivity.this, "Error in DCR : " + t.getMessage(), Toast.LENGTH_SHORT).show();
+                createErrorDialog("Error in  DCR.\n" + t.getMessage());
+                errorDialog.show();
             }
         });
+    }
+    private void createErrorDialog(String message) {
+        errorDialog.setMessage(message)
+                .setTitle(R.string.error_title)
+                .setPositiveButton("Ok", new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface dialog, int id) {
+                        dialog.cancel();
+                    }
+                });
     }
 }
 

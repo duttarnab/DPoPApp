@@ -13,15 +13,15 @@ public class OPConfiguration {
     private String userinfoEndpoint;
     @SerializedName("authorization_challenge_endpoint")
     private String authorizationChallengeEndpoint;
-    @SerializedName("end_session_endpoint")
-    private String endSessionEndpoint;
+    @SerializedName("revocation_endpoint")
+    private String revocationEndpoint;
 
-    public String getEndSessionEndpoint() {
-        return endSessionEndpoint;
+    public String getRevocationEndpoint() {
+        return revocationEndpoint;
     }
 
-    public void setEndSessionEndpoint(String endSessionEndpoint) {
-        this.endSessionEndpoint = endSessionEndpoint;
+    public void setRevocationEndpoint(String revocationEndpoint) {
+        this.revocationEndpoint = revocationEndpoint;
     }
 
     public String getIssuer() {

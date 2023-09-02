@@ -46,6 +46,7 @@ public interface APIInterface {
     @POST
     Call<Object> getUserInfo (@Field("access_token") String accessToken, @Header("Authorization") String authHeader, @Url String url);
 
-    @GET
-    Call<Void> logout (@Url String url);
+    @FormUrlEncoded
+    @POST
+    Call<Void> logout (@Field("token") String token, @Field("token_type_hint") String tokenTypeHint, @Header("Authorization") String authHeader, @Url String url);
 }

@@ -17,8 +17,8 @@ public class DBHandler extends SQLiteOpenHelper {
 
     @Override
     public void onCreate(SQLiteDatabase sqLiteDatabase) {
-        sqLiteDatabase.execSQL("CREATE TABLE IF NOT EXISTS OIDC_CLIENT (SNO INTEGER PRIMARY KEY, CLIENT_NAME TEXT, CLIENT_ID TEXT, CLIENT_SECRET TEXT, PUBLIC_KEY TEXT, RECENT_GENERATED_ID_TOKEN TEXT)");
-        sqLiteDatabase.execSQL("CREATE TABLE IF NOT EXISTS OP_CONFIGURATION (REGISTRATION_ENDPOINT TEXT, TOKEN_ENDPOINT TEXT, USERINFO_ENDPOINT TEXT, AUTHORIZATION_CHALLENGE_ENDPOINT, ISSUER, END_SESSION_ENDPOINT)");
+        sqLiteDatabase.execSQL("CREATE TABLE IF NOT EXISTS OIDC_CLIENT (SNO INTEGER PRIMARY KEY, CLIENT_NAME TEXT, CLIENT_ID TEXT, CLIENT_SECRET TEXT, PUBLIC_KEY TEXT, RECENT_GENERATED_ID_TOKEN TEXT, RECENT_GENERATED_ACCESS_TOKEN TEXT)");
+        sqLiteDatabase.execSQL("CREATE TABLE IF NOT EXISTS OP_CONFIGURATION (REGISTRATION_ENDPOINT TEXT, TOKEN_ENDPOINT TEXT, USERINFO_ENDPOINT TEXT, AUTHORIZATION_CHALLENGE_ENDPOINT, ISSUER, REVOCATION_ENDPOINT)");
     }
 
     @Override
@@ -36,6 +36,7 @@ public class DBHandler extends SQLiteOpenHelper {
         values.put("CLIENT_ID", client.getClientId());
         values.put("CLIENT_SECRET", client.getClientSecret());
         values.put("RECENT_GENERATED_ID_TOKEN", client.getRecentGeneratedIdToken());
+        values.put("RECENT_GENERATED_ACCESS_TOKEN", client.getRecentGeneratedAccessToken());
         long id = db.insert("OIDC_CLIENT", null, values);
         Log.d("DBHandler :: addOIDCClient ::", Long.toString(id));
         db.close();
@@ -53,8 +54,11 @@ public class DBHandler extends SQLiteOpenHelper {
         if (client.getClientName() != null && !client.getClientName().isEmpty()) {
             values.put("CLIENT_SECRET", client.getClientSecret());
         }
-        if (client.getClientName() != null && !client.getClientName().isEmpty()) {
+        if (client.getRecentGeneratedIdToken() != null && !client.getRecentGeneratedIdToken().isEmpty()) {
             values.put("RECENT_GENERATED_ID_TOKEN", client.getRecentGeneratedIdToken());
+        }
+        if (client.getRecentGeneratedAccessToken() != null && !client.getRecentGeneratedAccessToken().isEmpty()) {
+            values.put("RECENT_GENERATED_ACCESS_TOKEN", client.getRecentGeneratedAccessToken());
         }
         long id = db.update("OIDC_CLIENT", values, "SNO=?", new String[]{client.getSno()});
         Log.d("DBHandler :: updateOIDCClient ::", Long.toString(id));
@@ -69,7 +73,7 @@ public class DBHandler extends SQLiteOpenHelper {
         values.put("TOKEN_ENDPOINT", configuration.getTokenEndpoint());
         values.put("USERINFO_ENDPOINT", configuration.getUserinfoEndpoint());
         values.put("AUTHORIZATION_CHALLENGE_ENDPOINT", configuration.getAuthorizationChallengeEndpoint());
-        values.put("END_SESSION_ENDPOINT", configuration.getEndSessionEndpoint());
+        values.put("REVOCATION_ENDPOINT", configuration.getRevocationEndpoint());
 
         long id = db.insert("OP_CONFIGURATION", null, values);
         Log.d("DBHandler :: addOPConfiguration ::", Long.toString(id));
@@ -78,7 +82,7 @@ public class DBHandler extends SQLiteOpenHelper {
 
     public OPConfiguration getOPConfiguration() {
         SQLiteDatabase db = this.getReadableDatabase();
-        Cursor result = db.query("OP_CONFIGURATION", new String[]{"REGISTRATION_ENDPOINT", "TOKEN_ENDPOINT", "USERINFO_ENDPOINT", "AUTHORIZATION_CHALLENGE_ENDPOINT", "ISSUER", "END_SESSION_ENDPOINT"},
+        Cursor result = db.query("OP_CONFIGURATION", new String[]{"REGISTRATION_ENDPOINT", "TOKEN_ENDPOINT", "USERINFO_ENDPOINT", "AUTHORIZATION_CHALLENGE_ENDPOINT", "ISSUER", "REVOCATION_ENDPOINT"},
                 null, null, null, null, null);
         if (result != null && result.moveToFirst()) {
             Log.d("getConfiguration 1", result.getString(0));
@@ -89,7 +93,7 @@ public class DBHandler extends SQLiteOpenHelper {
             configuration.setUserinfoEndpoint(result.getString(2));
             configuration.setAuthorizationChallengeEndpoint(result.getString(3));
             configuration.setIssuer(result.getString(4));
-            configuration.setEndSessionEndpoint(result.getString(5));
+            configuration.setRevocationEndpoint(result.getString(5));
 
             return configuration;
 
@@ -101,7 +105,7 @@ public class DBHandler extends SQLiteOpenHelper {
 
     public OIDCClient getOIDCClient(int sno) {
         SQLiteDatabase db = this.getReadableDatabase();
-        Cursor result = db.query("OIDC_CLIENT", new String[]{"SNO", "CLIENT_NAME", "CLIENT_ID", "CLIENT_SECRET", "RECENT_GENERATED_ID_TOKEN"},
+        Cursor result = db.query("OIDC_CLIENT", new String[]{"SNO", "CLIENT_NAME", "CLIENT_ID", "CLIENT_SECRET", "RECENT_GENERATED_ID_TOKEN", "RECENT_GENERATED_ACCESS_TOKEN"},
                 "SNO=?", new String[]{String.valueOf(sno)}, null, null, null);
         if (result != null && result.moveToFirst()) {
             Log.d("getConfiguration 1", result.getString(1));
@@ -112,6 +116,7 @@ public class DBHandler extends SQLiteOpenHelper {
             client.setClientId(result.getString(2));
             client.setClientSecret(result.getString(3));
             client.setRecentGeneratedIdToken(result.getString(4));
+            client.setRecentGeneratedAccessToken(result.getString(5));
             return client;
 
         } else {
